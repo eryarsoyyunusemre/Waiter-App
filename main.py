@@ -64,7 +64,7 @@ with sr.Microphone() as source:
 
         # Veritabanı bağlantısını kapatma
         cursor.close()
-        conn.close()
+        conn.close();
 
 
     except sr.UnknownValueError:
