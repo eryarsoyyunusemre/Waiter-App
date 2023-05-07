@@ -132,8 +132,6 @@ with sr.Microphone() as source:
     data = (urun_adi,adet,musteri_adi,masa_no)
     cur.execute(query, data)
 
-    print(musteri_adi)
-    print(masa_no)
 
     conn.commit()
     cur.close()
