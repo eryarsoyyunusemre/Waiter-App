@@ -16,7 +16,7 @@ username = "yunusemre"
 password = "1950"
 
 # OpenAI API anahtarınızı belirtin
-openai.api_key = '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'
+openai.api_key = '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'
 
 # Ses tanıma için Recognizer objesi oluşturun
 r = sr.Recognizer()
