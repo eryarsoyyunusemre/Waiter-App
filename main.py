@@ -2,8 +2,7 @@ import speech_recognition as sr
 import openai
 import psycopg2
 import nltk
-from nltk.tokenize import word_tokenize
-from nltk.tag import pos_tag
+
 
 # İndirme yöneticisini çalıştırarak NLTK için gereken veri kümelerini indiriyoruz
 nltk.download('punkt')
@@ -11,15 +10,23 @@ nltk.download('averaged_perceptron_tagger')
 
 hostname = "localhost"
 port = "5432"
-database = "db"
+database = "sofram"
 username = "yunusemre"
 password = "1950"
 
 # OpenAI API anahtarınızı belirtin
-openai.api_key = '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'
+openai.api_key = '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'
 
 # Ses tanıma için Recognizer objesi oluşturun
 r = sr.Recognizer()
+
+conn = psycopg2.connect(
+    host=hostname,
+    port=port,
+    database=database,
+    user=username,
+    password=password
+)
 
 # İlk olarak masa numarası ve müşteri adını alın ve süreyi 30 saniye olarak ayarlayın
 with sr.Microphone() as source:
@@ -41,9 +48,8 @@ with sr.Microphone() as source:
         anahtar_kelimeler = [kelime[0] for kelime in kelime_oznitelikleri if kelime[1] == 'NNP']
 
         musteri_adi = ' '.join(
-            [kelime for kelime in anahtar_kelimeler if kelime.lower() not in ['merhaba', 'selam', 'ismim', 'adım']])
-
-
+            [kelime for kelime in anahtar_kelimeler if
+             kelime.lower() not in ['merhaba', 'selam', 'ismim', 'adım', 'ben']])
 
         masa_no = None
         for i, kelime_ozniteligi in enumerate(kelime_oznitelikleri):
@@ -55,9 +61,7 @@ with sr.Microphone() as source:
 
         print("Musteri adi:", musteri_adi)
         print("Masa no:", masa_no)
-
-
-
+        print(command)
 
     except sr.UnknownValueError:
         print("Anlaşılamayan komut")
@@ -84,14 +88,6 @@ with sr.Microphone() as source:
             n=1,
             stop=None
         )
-        conn = psycopg2.connect(
-            host=hostname,
-            port=port,
-            database=database,
-            user=username,
-            password=password
-        )
-
 
         # GPT-3 API'den gelen cevabı alın
         if 'choices' in response and len(response.choices) > 0:
@@ -104,36 +100,48 @@ with sr.Microphone() as source:
         print("Bağlantı hatası:", e)
 
     cur = conn.cursor()
+    cümle = command
 
-    cumle = command
-    kelimeler = word_tokenize(cumle)
-    kelime_oznitelikleri = pos_tag(kelimeler)
-    anahtar_kelimeler = [kelime[0] for kelime in kelime_oznitelikleri if kelime[1] == 'NN']
-    urunler = {}
+    # Cümleyi kelimelere ayırın ve her kelimenin özniteliklerini bulun
+    kelimeler = nltk.word_tokenize(cümle)
+    kelime_oznitelikleri = nltk.pos_tag(kelimeler)
 
-    adet_indexleri = [i for i, kelime_ozniteligi in enumerate(kelime_oznitelikleri) if kelime_ozniteligi[1] == 'CD']
-    for i in range(len(adet_indexleri)):
-        adet_indexi = adet_indexleri[i]
-        if i < len(adet_indexleri) - 1:
-            sonraki_adet_indexi = adet_indexleri[i + 1]
-        else:
-            sonraki_adet_indexi = len(kelime_oznitelikleri)
-        urun_adi = ' '.join([kelime for kelime in anahtar_kelimeler[adet_indexi + 1:sonraki_adet_indexi] if
-                             kelime not in ['adet', 'istiyorum', 'tane', 'vermek', 'sipariş', 'etmek']])
-        adet = int(kelime_oznitelikleri[adet_indexi][0])
-        if urun_adi in urunler:
-            urunler[urun_adi].append(adet)
-        else:
-            urunler[urun_adi] = [adet]
+    # Boş bir sözlük oluşturun
+    urunler = []
 
+    # Değişkenleri tanımlayın
+    adet = None
+    urun_adi = None
 
+    # Kelime öznitelikleri listesinde dolaşın
+    for kelime, oznitelik in kelime_oznitelikleri:
+        # Sayısal bir değer bulunursa, adet değerini kaydedin
+        if oznitelik == 'CD':
+            adet = int(kelime)
+        # İsim veya isim öbeği bulunursa, ürün adını kaydedin
+        elif oznitelik.startswith('NN'):
+            urun_adi = kelime
+        # Her iki değişken de doluysa, ürünü listeye ekleyin ve değişkenleri sıfırlayın
+        if adet is not None and urun_adi is not None:
+            urunler.append((adet, urun_adi))
+            adet = None
+            urun_adi = None
 
-    query = "INSERT INTO siparisler (urun_adi, adet, musteri_adi, masa_no) VALUES (%s, %s, %s, %s)"
-    data = (urun_adi,adet,musteri_adi,masa_no)
-    cur.execute(query, data)
+    # Ürünleri yazdırın
+    for i, (adet, urun_adi) in enumerate(urunler, start=1):
+        print(f"Ürün {i}: {adet} adet {urun_adi}")
 
+    sorgu = "INSERT INTO urunler (urun_adi, adet, musteri_adi, masa_no) VALUES (%s, %s, %s, %s)"
+
+    for i, (adet, urun_adi) in enumerate(urunler, start=1):
+        veriler = (urun_adi, adet, musteri_adi, masa_no)
+        cur.execute(sorgu, veriler)
 
     conn.commit()
+
+    print(urun_adi)
+    print(adet)
+
     cur.close()
     conn.close()
 
