@@ -8,11 +8,11 @@ import nltk
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 
-hostname = "localhost"
-port = "5432"
-database = "sofram"
-username = "yunusemre"
-password = "1950"
+hostname = "*"
+port = "*"
+database = "*"
+username = "*"
+password = "*"
 
 # OpenAI API anahtarınızı belirtin
 openai.api_key = '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'
